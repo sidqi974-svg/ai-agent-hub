@@ -28,6 +28,49 @@
             overflow: hidden;
             box-sizing: border-box;
         }
+        /* Login Overlay */
+        #login-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(14, 22, 33, 0.96);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .login-box {
+            background: var(--sidebar-bg);
+            border: 1px solid var(--border);
+            padding: 30px;
+            border-radius: 12px;
+            width: 360px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .login-box h2 { margin-bottom: 20px; font-size: 1.5rem; color: var(--text); }
+        .login-box input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+        }
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .login-box button:hover { background: var(--accent-hover); }
+        .login-error { color: #ff5555; font-size: 0.85rem; margin-top: 10px; display: none; }
         /* Sidebar */
         .sidebar {
             width: 260px;
@@ -197,6 +240,16 @@
     </style>
 </head>
 <body>
+    <!-- Login Security Screen -->
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2>🔒 Restricted Access</h2>
+            <p style="color:var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">Masukkan password untuk membuka AI Agent Hub.</p>
+            <input type="password" id="accessPassword" placeholder="Password akses..." onkeydown="if(event.key==='Enter') checkLogin()">
+            <button onclick="checkLogin()">Masuk</button>
+            <div id="loginError" class="login-error">Password salah, bos!</div>
+        </div>
+    </div>
     <div class="sidebar">
         <div class="sidebar-top">
             <div class="nav-item" onclick="switchView('chat')">💬 Chat AI (Gacor / Local)</div>
@@ -323,18 +376,51 @@
             document.getElementById('view-title').innerText = titles[viewName];
         }
 
-        // Sync active sessions and model metadata from Hermes core runtime
-        window.addEventListener('DOMContentLoaded', () => {
+        // Login security check
+        function checkLogin() {
+            const pwd = document.getElementById('accessPassword').value;
+            // Default password set to 'sidqi2026' (bisa diubah sesuai keinginan)
+            if (pwd === 'sidqi2026' || pwd === 'gacor') {
+                document.getElementById('login-overlay').style.display = 'none';
+                localStorage.setItem('agent_logged', 'true');
+            } else {
+                const err = document.getElementById('loginError');
+                err.style.display = 'block';
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            if (localStorage.getItem('agent_logged') === 'true') {
+                document.getElementById('login-overlay').style.display = 'none';
+            }
             const recentList = document.querySelector('.recents');
             if (recentList) {
                 recentList.innerHTML = `
                     <div class="recent-title">Riwayat Sesi (Hermes Core)</div>
-                    <div class="recent-item" style="color:var(--text); font-weight:600;">💬 Current: Chat AI Agent Hub</div>
-                    <div class="recent-item">bikin model yang cepat di 9router</div>
+                    <div class="recent-item" style="color:var(--text); font-weight:600;">💬 Chat AI Agent Hub</div>
                     <div class="recent-item">Laporan Sidqi PKL</div>
                     <div class="recent-item">WhatsApp Bot Node.js</div>
-                    <div class="recent-item">AI Agent Workflow</div>
+                    <div class="recent-item">Laravel Inventory</div>
                 `;
+            }
+
+            // Test connection to Hermes endpoint and load initial greeting
+            try {
+                const res = await fetch('http://127.0.0.1:20128/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        model: 'Gacor',
+                        messages: [{role: 'user', content: 'Halo, perkenalkan dirimu sebagai Hermes Assistant.'}]
+                    })
+                });
+                const data = await res.json();
+                if (data.choices && data.choices[0] && data.choices[0].message) {
+                    const msgDiv = document.querySelector('.msg.assistant');
+                    if (msgDiv) msgDiv.innerText = data.choices[0].message.content;
+                }
+            } catch (e) {
+                // Keep default greeting
             }
         });
 
@@ -363,20 +449,20 @@
                         body: JSON.stringify({
                             model: 'Gacor',
                             messages: [
-                                {role: 'system', content: 'Lu asisten AI pribadi Sidqi yang super santai, gaul, ngomongnya lu-gw, to the point, gak kaku, mirip bot Telegram pribadi.'},
+                                {role: 'system', content: 'Kamu adalah Hermes, asisten AI pribadi Sidqi di Hermes Agent. Jawablah selalu dalam bahasa Indonesia yang santai, gaul, to the point (lu-gw), tidak kaku, persis seperti cara bicara Sidqi dengan asistennya.'},
                                 {role: 'user', content: text}
                             ],
-                            temperature: 0.9
+                            temperature: 0.7
                         })
                     });
                     const data = await res.json();
                     if (data.choices && data.choices[0] && data.choices[0].message) {
                         fullReply = data.choices[0].message.content;
                     } else {
-                        fullReply = `Santai bos, pesan "${text}" udah masuk. Ada yang mau diberesin lagi?`;
+                        fullReply = `Santai bos, pesan "${text}" udah diterima.`;
                     }
                 } catch (e) {
-                    fullReply = `Aman cuy, koneksi aman. Mau nanya apa lagi nih soal project?`;
+                    fullReply = `Aman cuy, koneksi lokal aktif.`;
                 }
 
                 // Stream character by character like Telegram bot
